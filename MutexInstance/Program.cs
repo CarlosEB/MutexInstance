@@ -1,10 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.AccessControl;
-using System.Security.Principal;
-using System.Threading;
 using System.Threading.Tasks;
+using Bancada.Library;
 
 namespace Bancada
 {
@@ -12,7 +10,7 @@ namespace Bancada
     {
         private static List<string> _runned;
 
-        static void Main(string[] args)
+        static void Main()
         {
             _runned = new List<string>();
 
@@ -59,86 +57,6 @@ namespace Bancada
             Console.WriteLine($"Begin {task}");
             Task.Delay(TimeSpan.FromSeconds(new Random().Next(1, 10))).Wait();
             Console.WriteLine($"End {task}");
-        }
-    }
-
-
-    public class MutexInstance : IDisposable
-    {
-        private bool _hasAcquired;
-
-        private Mutex _mutex;
-
-        public MutexInstance(string mutexName, TimeSpan timeOut, int times = 0)
-        {
-            CreateMutex(mutexName);
-
-            RetryAction.Retry(times, timeOut, () => { TryHandle(mutexName, timeOut); });
-        }
-
-        private void TryHandle(string mutexName, TimeSpan timeOut)
-        {
-            try
-            {
-                _hasAcquired = _mutex.WaitOne(timeOut, false);
-
-                if (_hasAcquired == false)
-                    throw new TimeoutException($"Timeout trying to get exclusive Mutex: {mutexName}.");
-            }
-            catch (AbandonedMutexException)
-            {
-                _hasAcquired = true;
-            }
-        }
-
-        public void Dispose()
-        {
-            if (_mutex == null) return;
-
-            if (_hasAcquired) _mutex.ReleaseMutex();
-
-            _mutex.Close();
-        }
-
-        private void CreateMutex(string mutexName)
-        {
-            mutexName = mutexName.Replace("\\", "_");
-
-            var mutexId = $"Global\\{{{mutexName}}}";
-            _mutex = new Mutex(false, mutexId);
-
-            var rules = new MutexAccessRule(new SecurityIdentifier(WellKnownSidType.WorldSid, null), MutexRights.FullControl, AccessControlType.Allow);
-            var security = new MutexSecurity();
-
-            security.AddAccessRule(rules);
-
-            _mutex.SetAccessControl(security);
-        }
-    }
-
-    public static class RetryAction
-    {
-        public static void Retry(int times, TimeSpan timeOut, Action action)
-        {
-            var attempts = 1;
-            while (true)
-            {
-                try
-                {
-                    action();
-                    break;
-                }
-                catch
-                {
-                    if (attempts > times) throw;
-
-                    Console.WriteLine($"Exception caught attempt: {attempts} - will retry after: {timeOut}");
-
-                    Task.Delay(timeOut).Wait();
-
-                    attempts++;
-                }
-            }
         }
     }
 }
